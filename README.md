@@ -1,6 +1,6 @@
 # Stratus SDK (Python)
 
-**Official Python SDK for Stratus X1** - Add a planning layer to your LLM agent in 3 lines of code.
+**Give your LLM agent a planning brain** · Add M-JEPA-G world model in 3 lines of code
 
 [![PyPI version](https://img.shields.io/pypi/v/stratus-sdk)](https://pypi.org/project/stratus-sdk/)
 [![Python Support](https://img.shields.io/pypi/pyversions/stratus-sdk)](https://pypi.org/project/stratus-sdk/)
@@ -8,132 +8,87 @@
 
 ---
 
-## Features
+## The Problem
 
-- 🔌 **OpenAI-Compatible** - Drop-in replacement for OpenAI client
-- 🚀 **World Model Integration** - Built-in trajectory prediction & state rollout
-- 📦 **Automatic Compression** - 15-20x smaller embeddings with 99%+ quality
-- 🛠️ **Production-Ready** - Async/await, retries, caching, rate limiting
-- 🎯 **Type-Safe** - Full type hints with Pydantic models
-- 🐍 **Pythonic** - Follows Python best practices and conventions
+Your LLM agent (GPT-4, Claude, whatever) is smart. But it's **slow**, **expensive**, and **guesses** its way through multi-step tasks.
 
----
+You're burning tokens on reasoning loops. Plans fail halfway through. You retry and hope.
 
-## Installation
+## The Fix
 
-```bash
-pip install stratus-sdk
-```
+Add a **world model** that predicts action sequences **before** your agent executes.
 
-**Requirements:** Python 3.8+
+**M-JEPA-G plans. Your LLM executes.** Best of both worlds.
+
+- **120ms planning** (vs 5-20s LLM reasoning)
+- **$0.10 per 1M tokens** (30x cheaper than Claude for planning)
+- **Validates before executing** (catch errors before expensive calls)
+- **Works with your LLM** (GPT-4, Claude, Gemini - you choose)
 
 ---
 
 ## Quick Start
 
-### Drop-In OpenAI Replacement
+### Install
 
-**Before (OpenAI):**
+```bash
+pip install stratus-sdk
+```
+
+### Add to Your Agent (3 lines)
+
+**Before:**
 ```python
-import openai
-
-client = openai.OpenAI(api_key="sk-...")
-
-response = await client.chat.completions.create(
-    messages=[{"role": "user", "content": "Plan the next steps."}],
+# Your agent guesses the plan, crosses fingers
+response = await openai_client.chat.completions.create(
+    messages=[{"role": "user", "content": "Book a flight to NYC"}],
     model="gpt-4"
 )
+await agent.execute(response)  # Hope it works
 ```
 
-**After (M-JEPA-G):**
+**After:**
 ```python
 from stratus_sdk import MJepaGClient
 
-client = MJepaGClient(api_key="sk-stratus-...")
+# Add world model
+planner = MJepaGClient(api_key="sk-stratus-...")
 
-response = await client.chat.completions.create(
-    messages=[{"role": "user", "content": "Plan the next steps."}],
-    model="stratus-x1-ac"
-)
-```
-
-**That's it.** Same API, 10x faster, 10x cheaper.
-
----
-
-## Common Use Cases
-
-### 1. Agent Planning
-
-Before executing actions, ask M-JEPA-G what will happen:
-
-```python
-from stratus_sdk import MJepaGClient
-
-client = MJepaGClient(api_key="sk-stratus-...")
-
-# Predict multi-step trajectory
-result = await client.rollout(
+# Get validated plan
+plan = await planner.rollout(
     goal="Book a flight to NYC",
     initial_state="On airline homepage",
     max_steps=5
 )
 
-# Execute only if plan looks good
-if result.summary.outcome == "success":
-    print("Plan validated:")
-    for pred in result.predictions:
-        print(f"Step {pred.step}: {pred.action.action_text}")
-```
-
-### 2. Workflow Validation
-
-Validate multi-step workflows before running them:
-
-```python
-from stratus_sdk import TrajectoryPredictor
-
-predictor = TrajectoryPredictor(client)
-
-result = await predictor.predict(
-    initial_state="Database: 1000 users, API: healthy",
-    goal="Migrate to new database without downtime",
-    max_steps=10
-)
-
-if result.summary["goalAchieved"] and result.summary["qualityScore"] > 90:
-    print("Safe to proceed")
-    print(f"Steps: {' → '.join(result.summary['actions'])}")
-else:
-    print("Plan has issues:", result.summary["outcome"])
-```
-
-### 3. Add Planning Layer to Your LLM
-
-```python
-# Before: LLM plans and executes (slow, expensive, error-prone)
-response = await openai_client.chat.completions.create(
-    messages=[{"role": "user", "content": "Book a flight to NYC and find a hotel"}],
-    model="gpt-4"
-)
-await execute_actions(response)  # Hope it works!
-
-# After: M-JEPA-G plans, your LLM executes (fast, cheap, validated)
-plan = await client.rollout(
-    goal="Book flight and hotel for NYC",
-    initial_state="On travel site",
-    max_steps=10
-)
-
-# Validate before executing
+# Execute only if safe
 if plan.summary.outcome == "success":
     for step in plan.predictions:
-        await your_llm.execute(step.action.action_text)  # GPT-4, Claude, etc.
+        await your_agent.execute(step.action.action_text)
 ```
+
+**That's it.** Your agent now thinks before it acts.
 
 ---
 
-## Framework Integration
+## What You Get
+
+### 1. **Faster Iteration**
+Stop burning 20 seconds per planning loop. Get plans in 120ms.
+
+### 2. **Way Cheaper**
+Planning: $0.10 per 1M tokens (M-JEPA-G)
+Execution: $3 per 1M tokens (Claude) **only when needed**
+
+### 3. **Fewer Retries**
+World model catches errors **before** you execute. No more "oops, start over."
+
+### 4. **Keep Your LLM**
+Works with GPT-4, Claude, Gemini, Llama - whatever you're already using. Just add the planning layer.
+
+---
+
+## Drop Into Your Stack
 
 ### LangChain
 
@@ -141,25 +96,25 @@ if plan.summary.outcome == "success":
 from stratus_sdk import MJepaGClient
 from langchain.chat_models import ChatOpenAI
 
-# Your existing LangChain setup
+# Your existing setup
 llm = ChatOpenAI(...)
 
-# Add M-JEPA-G for planning
+# Add planning layer
 planner = MJepaGClient(api_key="sk-stratus-...")
 
-# Validate actions before executing
-result = await planner.rollout(
-    goal="Complete the user task",
-    initial_state="Current context: ...",
+# Plan first, then execute
+plan = await planner.rollout(
+    goal="Complete user task",
+    initial_state="Current state: ...",
     max_steps=5
 )
 
-# Execute the validated plan
-for step in result.predictions:
+# Let your LLM execute the validated plan
+for step in plan.predictions:
     await llm.call([{"role": "user", "content": step.action.action_text}])
 ```
 
-### Custom Agent Framework
+### AutoGPT / Custom Agents
 
 ```python
 from stratus_sdk import MJepaGClient, TrajectoryPredictor
@@ -168,33 +123,106 @@ class MyAgent:
     def __init__(self):
         client = MJepaGClient(api_key="sk-stratus-...")
         self.planner = TrajectoryPredictor(client)
+        self.executor = YourLLM()  # GPT-4, Claude, etc.
 
     async def execute_task(self, goal: str):
-        # 1. Use M-JEPA-G to plan
+        # 1. World model plans the trajectory
         plan = await self.planner.predict(
             initial_state=self.get_current_state(),
             goal=goal,
             max_steps=10
         )
 
-        # 2. Execute validated plan
-        for action in plan.summary["actions"]:
-            await self.execute(action)
+        # 2. Validate quality
+        if plan.summary["qualityScore"] < 80:
+            return {"error": "Plan quality too low"}
 
-        return plan.summary["goalAchieved"]
+        # 3. Execute with your LLM
+        for action in plan.summary["actions"]:
+            await self.executor.run(action)
+
+        return {"success": plan.summary["goalAchieved"]}
+```
+
+### CrewAI / Multi-Agent Systems
+
+```python
+from stratus_sdk import MJepaGClient
+
+planner = MJepaGClient(api_key="sk-stratus-...")
+
+# Before assigning tasks to agents, validate the workflow
+workflow_plan = await planner.rollout(
+    goal="Research, write, and publish article",
+    initial_state="Topic: AI agents",
+    max_steps=8
+)
+
+# Assign validated steps to your crew
+if workflow_plan.summary.outcome == "success":
+    for step, agent in zip(workflow_plan.predictions, crew):
+        await agent.execute(step.action.action_text)
+```
+
+---
+
+## The Pattern
+
+**Plan → Validate → Execute**
+
+```python
+# 1. PLAN (120ms, $0.0001)
+plan = await planner.rollout(
+    goal="Book flight and hotel for NYC",
+    initial_state="On travel site",
+    max_steps=10
+)
+
+# 2. VALIDATE (instant)
+if plan.summary.outcome != "success":
+    print("Plan failed:", plan.summary.outcome)
+    return
+
+if plan.summary.qualityScore < 85:
+    print("Quality too low, trying different approach")
+    return
+
+# 3. EXECUTE (your LLM does the work)
+for step in plan.predictions:
+    result = await your_llm.execute(step.action.action_text)
+    # Update state, continue
 ```
 
 ---
 
 ## Advanced Features
 
-### Streaming
-
-Stream chat completions for real-time responses:
+### Parallel Planning (Try Multiple Approaches)
 
 ```python
+from stratus_sdk import TrajectoryPredictor
+
+predictor = TrajectoryPredictor(client)
+
+# Generate 3 different plans in parallel
+plans = await predictor.predict_many([
+    {"initial_state": "...", "goal": "Fast approach", "max_steps": 3},
+    {"initial_state": "...", "goal": "Safe approach", "max_steps": 5},
+    {"initial_state": "...", "goal": "Optimal approach", "max_steps": 4},
+])
+
+# Pick the best one
+best = predictor.find_optimal(plans)
+print(f"Using: {best.summary['outcome']}")
+print(f"Quality: {best.summary['qualityScore']}/100")
+```
+
+### Streaming (Real-Time Plans)
+
+```python
+# Stream plans as they're generated
 async for chunk in client.chat.completions.stream(
-    messages=[{"role": "user", "content": "Plan the deployment."}],
+    messages=[{"role": "user", "content": "Plan the deployment"}],
     model="stratus-x1-ac"
 ):
     content = chunk.choices[0].delta.get("content", "")
@@ -202,83 +230,22 @@ async for chunk in client.chat.completions.stream(
         print(content, end="")
 ```
 
-### Parallel Planning
+### Production Ready Out of the Box
 
-Explore multiple approaches simultaneously:
-
-```python
-from stratus_sdk import TrajectoryPredictor
-
-predictor = TrajectoryPredictor(client)
-
-# Try 3 different approaches
-plans = await predictor.predict_many([
-    {"initial_state": "state A", "goal": "Fast path", "max_steps": 3},
-    {"initial_state": "state B", "goal": "Safe path", "max_steps": 5},
-    {"initial_state": "state C", "goal": "Optimal", "max_steps": 4},
-])
-
-# Pick the best one automatically
-best = predictor.find_optimal(plans)
-
-print(f"Using plan: {best.summary['outcome']}")
-print(f"Quality: {best.summary['qualityScore']}/100")
-print(f"Steps: {' → '.join(best.summary['actions'])}")
-```
-
-### Automatic Compression
-
-M-JEPA-G embeddings are compressed automatically:
-
-```python
-from stratus_sdk import MJepaGClient, CompressionLevel
-
-client = MJepaGClient(
-    api_key="sk-stratus-...",
-    compression_profile=CompressionLevel.MEDIUM  # 16x compression, 99.7% quality
-)
-
-# Embeddings are compressed behind the scenes
-response = await client.chat.completions.create(...)
-
-# Storage savings:
-print(client.get_compression_ratio())  # "16.8x"
-print(client.get_quality_score())      # 99.7
-```
-
-**Compression levels:**
-- `CompressionLevel.LOW` - 15x compression, 99.9% quality
-- `CompressionLevel.MEDIUM` - 16x compression, 99.7% quality (default)
-- `CompressionLevel.HIGH` - 18x compression, 99.5% quality
-- `CompressionLevel.VERY_HIGH` - 20x compression, 99.0% quality
-
----
-
-## Production Features
-
-### Automatic Retries
-
-Built-in exponential backoff:
-
+**Automatic Retries:**
 ```python
 client = MJepaGClient(
     api_key="sk-stratus-...",
-    retries=3,  # Automatic retry on failure
+    retries=3,  # Exponential backoff
     timeout=30.0
 )
-
-# Retries happen automatically
-response = await client.chat.completions.create(...)
 ```
 
-### Caching
-
-Reduce costs with in-memory caching:
-
+**Caching (Reduce Costs):**
 ```python
 from stratus_sdk import SimpleCache
 
-cache = SimpleCache(ttl_seconds=300)  # 5-minute TTL
+cache = SimpleCache(ttl_seconds=300)
 
 async def get_plan(goal: str):
     cached = cache.get(goal)
@@ -290,35 +257,25 @@ async def get_plan(goal: str):
     return result
 ```
 
-### Rate Limiting
-
-Automatic request throttling:
-
+**Rate Limiting:**
 ```python
 from stratus_sdk import RateLimiter
 
 limiter = RateLimiter(max_requests_per_second=10)
-
 await limiter.wait()
 response = await client.chat.completions.create(...)
 ```
 
-### Health Checks
-
-Monitor API availability:
-
+**Health Checks:**
 ```python
 from stratus_sdk import HealthChecker
 
-health = HealthChecker(
-    client,
-    on_unhealthy=lambda: print("M-JEPA-G API is down!")
-)
+health = HealthChecker(client)
 
 # Check on startup
 status = await health.check()
 if not status["healthy"]:
-    raise Exception("API unavailable")
+    raise Exception("M-JEPA-G API unavailable")
 
 # Monitor continuously
 await health.start_monitoring()  # Checks every 60s
@@ -326,47 +283,52 @@ await health.start_monitoring()  # Checks every 60s
 
 ---
 
-## How M-JEPA-G Complements Your LLM
+## Why M-JEPA-G + Your LLM?
 
-**The Pattern:** Plan with M-JEPA-G, Execute with Your LLM
+**You don't replace your LLM. You unlock it.**
 
-```python
-# 1. M-JEPA-G generates the plan (120ms, $0.0001)
-plan = await mjepa_client.rollout(
-    goal="Book flight and hotel for NYC trip",
-    initial_state="On travel site homepage",
-    max_steps=10
-)
+| Task | Best Tool | Why |
+|------|-----------|-----|
+| **Multi-step planning** | M-JEPA-G | 120ms, $0.0001, world model |
+| **Natural language** | Your LLM | Best at generation & interaction |
+| **Action validation** | M-JEPA-G | Catches errors before execution |
+| **Execution** | Your LLM | Does what it's best at |
 
-# 2. Your LLM executes each step (using GPT-4, Claude, etc.)
-for step in plan.predictions:
-    await your_llm.execute(step.action.action_text)
-```
-
-### Why This Works
-
-- **Planning is cheap** - M-JEPA-G: $0.10 per 1M tokens (30x cheaper than Claude)
-- **Execution quality** - Use GPT-4/Claude for what they're best at: language & interaction
-- **Faster iteration** - Validate plans before expensive LLM calls
-- **Fewer retries** - World model catches errors before execution
-
-### Use M-JEPA-G For
-
-✅ Multi-step workflow planning
-✅ Predicting action sequences before execution
-✅ Validating agent plans (catch errors early)
-✅ High-frequency planning tasks
-
-### Use Your LLM For
-
-✅ Executing the validated plan
-✅ Natural language generation
-✅ Complex reasoning and creativity
-✅ Domain-specific knowledge
+**The result:** Faster, cheaper, more reliable agents.
 
 ---
 
-## API Reference
+## OpenAI-Compatible API
+
+Drop-in replacement for planning tasks:
+
+**Before (OpenAI):**
+```python
+import openai
+
+client = openai.OpenAI(api_key="sk-...")
+response = await client.chat.completions.create(
+    messages=[{"role": "user", "content": "Plan the next steps"}],
+    model="gpt-4"
+)
+```
+
+**After (M-JEPA-G):**
+```python
+from stratus_sdk import MJepaGClient
+
+client = MJepaGClient(api_key="sk-stratus-...")
+response = await client.chat.completions.create(
+    messages=[{"role": "user", "content": "Plan the next steps"}],
+    model="stratus-x1-ac"
+)
+```
+
+Same API. 10x faster. 10x cheaper.
+
+---
+
+## Complete API
 
 ### MJepaGClient
 
@@ -376,7 +338,7 @@ await client.chat.completions.create(messages, model)
 async for chunk in client.chat.completions.stream(messages, model):
     ...
 
-# M-JEPA-G specific
+# M-JEPA-G specific (trajectory prediction)
 await client.rollout(goal, initial_state, max_steps)
 await client.health()
 ```
@@ -385,9 +347,9 @@ await client.health()
 
 ```python
 await predictor.predict(initial_state, goal, max_steps)
-await predictor.predict_many([...])  # Parallel execution
-predictor.find_optimal(plans)        # Pick best trajectory
-predictor.compare(trajectories)       # Compare results
+await predictor.predict_many([...])  # Parallel
+predictor.find_optimal(plans)        # Pick best
+predictor.compare(trajectories)       # Compare
 ```
 
 ### Production Utilities
@@ -396,24 +358,23 @@ predictor.compare(trajectories)       # Compare results
 SimpleCache(ttl_seconds)              # Cache results
 RateLimiter(max_requests_per_second)  # Throttle requests
 HealthChecker(client, ...)            # Monitor API
-await retry_with_backoff(fn, ...)     # Auto-retry with backoff
+await retry_with_backoff(fn, ...)     # Auto-retry
 ```
 
 ---
 
 ## Examples
 
-Check out complete examples in the [examples/](./examples) directory:
+Check out [examples/](./examples) for complete implementations:
 
 - `basic_usage.py` - Quick start guide
 - `agent_planning.py` - Agent framework integration
 - `langchain_integration.py` - LangChain example
+- `parallel_planning.py` - Multiple trajectory exploration
 
 ---
 
 ## Testing
-
-Run the test suite:
 
 ```bash
 # Install dev dependencies
@@ -435,24 +396,18 @@ pytest --cov=stratus_sdk
 git clone https://github.com/formthefog/stratus-sdk-py
 cd stratus-sdk-py
 
-# Install in editable mode with dev dependencies
+# Install in editable mode
 pip install -e ".[dev]"
 
-# Format code
+# Format
 black stratus_sdk tests
 
 # Type checking
 mypy stratus_sdk
 
-# Linting
+# Lint
 ruff check stratus_sdk
 ```
-
----
-
-## License
-
-MIT License - see [LICENSE](./LICENSE) file for details.
 
 ---
 
@@ -474,4 +429,10 @@ MIT License - see [LICENSE](./LICENSE) file for details.
 
 ---
 
-**Built by [Formation](https://formation.ai)** · Making AI infrastructure better, one vector at a time.
+## License
+
+MIT License - see [LICENSE](./LICENSE) file for details.
+
+---
+
+**Built by [Formation](https://formation.ai)** · Making AI agents better, one world model at a time.
