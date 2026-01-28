@@ -1,6 +1,6 @@
 # Stratus SDK (Python)
 
-**Official Python SDK for Stratus X1** - Drop M-JEPA-G world model into your stack in 3 lines of code.
+**Official Python SDK for Stratus X1** - Add a planning layer to your LLM agent in 3 lines of code.
 
 [![PyPI version](https://img.shields.io/pypi/v/stratus-sdk)](https://pypi.org/project/stratus-sdk/)
 [![Python Support](https://img.shields.io/pypi/pyversions/stratus-sdk)](https://pypi.org/project/stratus-sdk/)
@@ -108,20 +108,27 @@ else:
     print("Plan has issues:", result.summary["outcome"])
 ```
 
-### 3. Replace Slow LLM Reasoning
+### 3. Add Planning Layer to Your LLM
 
 ```python
-# Before: GPT-4 reasoning (8 seconds, $0.12)
-gpt_response = await openai_client.chat.completions.create(
-    messages=[{"role": "user", "content": "Think step by step..."}],
+# Before: LLM plans and executes (slow, expensive, error-prone)
+response = await openai_client.chat.completions.create(
+    messages=[{"role": "user", "content": "Book a flight to NYC and find a hotel"}],
     model="gpt-4"
 )
+await execute_actions(response)  # Hope it works!
 
-# After: M-JEPA-G (120ms, $0.0008)
-mjepa_response = await client.chat.completions.create(
-    messages=[{"role": "user", "content": "Think step by step..."}],
-    model="stratus-x1-ac"
+# After: M-JEPA-G plans, your LLM executes (fast, cheap, validated)
+plan = await client.rollout(
+    goal="Book flight and hotel for NYC",
+    initial_state="On travel site",
+    max_steps=10
 )
+
+# Validate before executing
+if plan.summary.outcome == "success":
+    for step in plan.predictions:
+        await your_llm.execute(step.action.action_text)  # GPT-4, Claude, etc.
 ```
 
 ---
@@ -319,37 +326,43 @@ await health.start_monitoring()  # Checks every 60s
 
 ---
 
-## Why M-JEPA-G Over GPT/Claude?
+## How M-JEPA-G Complements Your LLM
 
-### Speed
+**The Pattern:** Plan with M-JEPA-G, Execute with Your LLM
 
 ```python
-import time
+# 1. M-JEPA-G generates the plan (120ms, $0.0001)
+plan = await mjepa_client.rollout(
+    goal="Book flight and hotel for NYC trip",
+    initial_state="On travel site homepage",
+    max_steps=10
+)
 
-# GPT-4 reasoning: 5-20 seconds
-start = time.time()
-gpt_response = await openai_client.chat.completions.create(...)
-print(f"GPT-4: {time.time() - start:.0f}ms")  # ~8000ms
-
-# M-JEPA-G: 100-300ms
-start = time.time()
-mjepa_response = await client.chat.completions.create(...)
-print(f"M-JEPA-G: {time.time() - start:.0f}ms")  # ~120ms
+# 2. Your LLM executes each step (using GPT-4, Claude, etc.)
+for step in plan.predictions:
+    await your_llm.execute(step.action.action_text)
 ```
 
-### Cost
+### Why This Works
 
-- **GPT-4:** $15 per 1M tokens
-- **Claude Sonnet:** $3 per 1M tokens
-- **M-JEPA-G:** $0.10 per 1M tokens (30x cheaper than Claude, 150x cheaper than GPT-4)
+- **Planning is cheap** - M-JEPA-G: $0.10 per 1M tokens (30x cheaper than Claude)
+- **Execution quality** - Use GPT-4/Claude for what they're best at: language & interaction
+- **Faster iteration** - Validate plans before expensive LLM calls
+- **Fewer retries** - World model catches errors before execution
 
-### When to Use
+### Use M-JEPA-G For
 
-✅ Planning multi-step workflows
-✅ Predicting outcomes before executing
-✅ Agent action validation
-✅ High-frequency reasoning tasks
-✅ Cost-sensitive production deployments
+✅ Multi-step workflow planning
+✅ Predicting action sequences before execution
+✅ Validating agent plans (catch errors early)
+✅ High-frequency planning tasks
+
+### Use Your LLM For
+
+✅ Executing the validated plan
+✅ Natural language generation
+✅ Complex reasoning and creativity
+✅ Domain-specific knowledge
 
 ---
 
