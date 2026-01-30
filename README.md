@@ -429,6 +429,19 @@ ruff check stratus_sdk
 
 ---
 
+## For AI Agents (Claude Code)
+
+**Using this SDK with Claude Code?** Check out [`CLAUDE.md`](./CLAUDE.md) for:
+- SDK-specific patterns and best practices
+- Common mistakes to avoid
+- Integration examples with LangChain/LlamaIndex
+- Type safety patterns with Pydantic
+- Error handling and async/await patterns
+
+The `CLAUDE.md` file provides context-aware instructions that Claude automatically loads when working with this SDK.
+
+---
+
 ## License
 
 MIT License - see [LICENSE](./LICENSE) file for details.
