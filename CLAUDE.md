@@ -1,11 +1,11 @@
 # Stratus Python SDK - Claude Instructions
 
-**Context:** When working with Stratus Python SDK for M-JEPA-G world model integration.
+**Context:** When working with Stratus Python SDK for Stratus X1 world model integration.
 
 ## What This SDK Does
 
 The Stratus Python SDK provides:
-- **M-JEPA-G World Model** - Trajectory prediction & state rollout for AI agents
+- **Stratus X1 World Model** - Trajectory prediction & state rollout for AI agents
 - **OpenAI-Compatible API** - Drop-in replacement for OpenAI client
 - **Agent Planning** - Predict multi-step action sequences before execution
 - **Workflow Validation** - Validate multi-step workflows before running them
@@ -25,9 +25,9 @@ Use the Stratus Python SDK when:
 ### 1. Drop-In OpenAI Replacement
 
 ```python
-from stratus_sdk import MJepaGClient
+from stratus_sdk import StratusClient
 
-client = MJepaGClient(api_key="sk-stratus-...")
+client = StratusClient(api_key="sk-stratus-...")
 
 response = await client.chat.completions.create(
     messages=[{"role": "user", "content": "Plan the next steps."}],
@@ -69,7 +69,7 @@ result = await predictor.predict(
 
 | File | Purpose |
 |------|---------|
-| `stratus_sdk/client.py` | Main M-JEPA-G client |
+| `stratus_sdk/client.py` | Main Stratus X1 client |
 | `stratus_sdk/models.py` | Pydantic models for requests/responses |
 | `stratus_sdk/trajectory.py` | Trajectory prediction utilities |
 | `demo.py` | Usage examples |
@@ -77,7 +77,7 @@ result = await predictor.predict(
 ## Common Use Cases
 
 ### Agent Planning
-Before executing actions, use M-JEPA-G to predict what will happen.
+Before executing actions, use Stratus X1 to predict what will happen.
 
 ### Workflow Validation
 Validate multi-step workflows before running them to catch issues early.
@@ -95,10 +95,10 @@ pip install stratus-sdk
 
 ## API Reference
 
-### MJepaGClient
+### StratusClient
 
 ```python
-client = MJepaGClient(
+client = StratusClient(
     api_key="sk-stratus-...",
     base_url="https://api.stratus.chat",  # optional
     timeout=30,  # optional
@@ -162,10 +162,10 @@ The SDK works with popular frameworks:
 
 ```python
 from langchain.llms import BaseLLM
-from stratus_sdk import MJepaGClient
+from stratus_sdk import StratusClient
 
 class StratusLLM(BaseLLM):
-    client: MJepaGClient
+    client: StratusClient
 
     def _call(self, prompt: str, **kwargs) -> str:
         response = await self.client.chat.completions.create(
@@ -213,6 +213,6 @@ STRATUS_TIMEOUT=30  # optional
 # Mock the client for testing
 from unittest.mock import AsyncMock
 
-client = MJepaGClient(api_key="test")
+client = StratusClient(api_key="test")
 client.rollout = AsyncMock(return_value=RolloutResponse(...))
 ```

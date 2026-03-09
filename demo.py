@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-M-JEPA-G SDK Demo
+Stratus X1 SDK Demo
 
-Comprehensive demonstration of M-JEPA-G SDK features.
+Comprehensive demonstration of Stratus X1 SDK features.
 """
 
 import asyncio
@@ -10,7 +10,7 @@ import os
 import time
 
 from stratus_sdk import (
-    MJepaGClient,
+    StratusClient,
     TrajectoryPredictor,
     compare_models,
     SimpleCache,
@@ -22,7 +22,7 @@ from stratus_sdk import (
 
 async def main():
     print("━" * 60)
-    print("  M-JEPA-G SDK DEMO (Python)")
+    print("  STRATUS X1 SDK DEMO (Python)")
     print("━" * 60)
     print()
 
@@ -31,7 +31,7 @@ async def main():
     API_URL = os.getenv("MJEPA_API_URL", "http://212.115.124.137:8000")
 
     # Initialize client
-    async with MJepaGClient(
+    async with StratusClient(
         api_key=API_KEY,
         api_url=API_URL,
         compression_profile=CompressionLevel.MEDIUM,
@@ -74,7 +74,7 @@ async def main():
             print("Sending chat completion request...")
 
             response = await client.chat.completions.create(
-                messages=[{"role": "user", "content": "Explain M-JEPA-G in one sentence."}],
+                messages=[{"role": "user", "content": "Explain Stratus X1 in one sentence."}],
                 model="stratus-x1-ac",
                 temperature=0.7,
                 max_tokens=100,
@@ -86,7 +86,7 @@ async def main():
         except Exception as e:
             print(f"✗ Chat completion failed: {e}")
             print(
-                "Mock response: M-JEPA-G is a world model that predicts future states and actions."
+                "Mock response: Stratus X1 is a world model that predicts future states and actions."
             )
         print()
 
@@ -185,7 +185,7 @@ async def main():
         print("─" * 60)
 
         try:
-            print("Comparing M-JEPA-G vs GPT-3.5...")
+            print("Comparing Stratus X1 vs GPT-3.5...")
 
             comparison = await compare_models(
                 models=["mjepa-g", "gpt-3.5-turbo"],
