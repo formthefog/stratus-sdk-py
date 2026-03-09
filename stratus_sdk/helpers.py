@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from typing import Any, Callable, Dict, Optional, TypeVar
 
 from .client import MJepaGClient
+from .exceptions import AuthenticationError, ValidationError
 
 T = TypeVar("T")
 
@@ -221,7 +222,9 @@ async def retry_with_backoff(
         except Exception as e:
             last_error = e
 
-            # Don't retry on certain errors
+            # Don't retry on auth or validation errors
+            if isinstance(e, (AuthenticationError, ValidationError)):
+                raise
             error_msg = str(e).lower()
             if any(x in error_msg for x in ["401", "400", "authentication", "invalid"]):
                 raise
@@ -233,6 +236,49 @@ async def retry_with_backoff(
                 await asyncio.sleep(delay / 1000)
 
     raise last_error or Exception("Retry failed")
+
+
+class CreditMonitor:
+    """Monitor credit balance with warning and critical threshold callbacks."""
+
+    def __init__(
+        self,
+        client: MJepaGClient,
+        warning_threshold: float = 10.0,
+        critical_threshold: float = 2.0,
+        on_warning: Optional[Callable[[float], None]] = None,
+        on_critical: Optional[Callable[[float], None]] = None,
+    ):
+        self.client = client
+        self.warning_threshold = warning_threshold
+        self.critical_threshold = critical_threshold
+        self.on_warning = on_warning
+        self.on_critical = on_critical
+        self._last_balance: Optional[float] = None
+
+    async def check(self) -> Optional[float]:
+        """Fetch current credit balance and fire callbacks if thresholds crossed."""
+        try:
+            response = await self.client._request("GET", "/v1/credits/balance")
+            data = response.json()
+            balance = float(data.get("balance", data))
+            self._last_balance = balance
+
+            if balance <= self.critical_threshold:
+                if self.on_critical:
+                    self.on_critical(balance)
+            elif balance <= self.warning_threshold:
+                if self.on_warning:
+                    self.on_warning(balance)
+
+            return balance
+        except Exception:
+            return None
+
+    @property
+    def last_balance(self) -> Optional[float]:
+        """Last known balance (without making a new request)."""
+        return self._last_balance
 
 
 def generate_cache_key(params: Dict[str, Any]) -> str:

@@ -1,11 +1,12 @@
 """
-M-JEPA-G API Client.
+Stratus API Client.
 
 Type-safe async client for the Stratus X1 M-JEPA-G API.
 """
 
+import asyncio
 import json
-from typing import AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
 import httpx
 from pydantic import ValidationError as PydanticValidationError
@@ -13,25 +14,35 @@ from pydantic import ValidationError as PydanticValidationError
 from .exceptions import APIError, AuthenticationError, RateLimitError, TimeoutError
 from .profiles import CompressionLevel, get_mjepa_profile
 from .types import (
+    AnthropicResponse,
     ChatCompletionChunk,
     ChatCompletionResponse,
-    Message,
+    CreditPackage,
+    CreditPurchaseResponse,
+    EmbeddingResponse,
+    LLMKeySetResponse,
+    LLMKeyStatus,
+    ModelInfo,
     RolloutResponse,
 )
 
 
-class MJepaGClient:
+class StratusClient:
     """
-    M-JEPA-G API Client.
+    Stratus API Client.
 
-    Provides type-safe access to M-JEPA-G endpoints:
+    Provides type-safe access to Stratus X1 endpoints:
     - Chat completions (OpenAI-compatible)
+    - Anthropic-compatible messages
+    - Embeddings
     - State rollout (trajectory prediction)
+    - LLM key management
+    - Credits
     - Streaming support
     - Built-in error handling and retries
 
     Example:
-        >>> client = MJepaGClient(api_key="sk-stratus-...")
+        >>> client = StratusClient(api_key="sk-stratus-...")
         >>> response = await client.chat.completions.create(
         ...     messages=[{"role": "user", "content": "Hello!"}],
         ...     model="stratus-x1-ac"
@@ -41,21 +52,11 @@ class MJepaGClient:
     def __init__(
         self,
         api_key: str,
-        api_url: str = "http://212.115.124.137:8000",
+        api_url: str = "https://api.stratus.run",
         timeout: float = 30.0,
         retries: int = 3,
         compression_profile: CompressionLevel = CompressionLevel.MEDIUM,
     ):
-        """
-        Initialize M-JEPA-G client.
-
-        Args:
-            api_key: Stratus API key
-            api_url: API base URL (default: deployed server)
-            timeout: Request timeout in seconds
-            retries: Number of retries on failure
-            compression_profile: Compression quality level
-        """
         self.api_key = api_key
         self.api_url = api_url.rstrip("/")
         self.timeout = timeout
@@ -66,19 +67,19 @@ class MJepaGClient:
             timeout=timeout,
             headers={
                 "Authorization": f"Bearer {api_key}",
+                "x-api-key": api_key,
                 "Content-Type": "application/json",
             },
         )
 
-        # Chat completions namespace (OpenAI-compatible)
-        self.chat = ChatCompletions(self)
+        self.chat = _ChatNamespace(self)
+        self.account = _AccountNamespace(self)
+        self.credits = _CreditsNamespace(self)
 
-    async def __aenter__(self) -> "MJepaGClient":
-        """Async context manager entry."""
+    async def __aenter__(self) -> "StratusClient":
         return self
 
-    async def __aexit__(self, *args) -> None:
-        """Async context manager exit."""
+    async def __aexit__(self, *args: Any) -> None:
         await self.close()
 
     async def close(self) -> None:
@@ -86,27 +87,10 @@ class MJepaGClient:
         await self._client.aclose()
 
     async def _request(
-        self, method: str, endpoint: str, **kwargs
+        self, method: str, endpoint: str, **kwargs: Any
     ) -> httpx.Response:
-        """
-        Make HTTP request with retries.
-
-        Args:
-            method: HTTP method
-            endpoint: API endpoint
-            **kwargs: Additional request arguments
-
-        Returns:
-            HTTP response
-
-        Raises:
-            AuthenticationError: Invalid API key
-            RateLimitError: Rate limit exceeded
-            TimeoutError: Request timeout
-            APIError: Other API errors
-        """
         url = f"{self.api_url}{endpoint}"
-        last_error = None
+        last_error: Optional[Exception] = None
 
         for attempt in range(self.retries):
             try:
@@ -119,18 +103,20 @@ class MJepaGClient:
                 elif response.status_code == 429:
                     raise RateLimitError("Rate limit exceeded")
                 elif response.status_code >= 500:
-                    # Server error - retry
                     if attempt < self.retries - 1:
-                        await httpx.AsyncClient().get("https://httpbin.org/delay/1")
+                        await asyncio.sleep(2**attempt)
                         continue
-                    raise APIError(f"Server error: {response.status_code}")
+                    raise APIError(f"Server error: {response.status_code}", response.status_code)
                 else:
-                    error_body = response.json()
-                    raise APIError(
-                        error_body.get("error", {}).get("message", "Unknown error"),
-                        response.status_code,
-                    )
+                    try:
+                        error_body = response.json()
+                        msg = error_body.get("error", {}).get("message", "Unknown error")
+                    except Exception:
+                        msg = f"HTTP {response.status_code}"
+                    raise APIError(msg, response.status_code)
 
+            except (AuthenticationError, RateLimitError):
+                raise
             except httpx.TimeoutException as e:
                 last_error = TimeoutError(f"Request timeout: {e}")
                 if attempt < self.retries - 1:
@@ -151,25 +137,7 @@ class MJepaGClient:
         max_steps: int = 10,
         return_intermediate: bool = True,
     ) -> RolloutResponse:
-        """
-        Predict state trajectory (rollout).
-
-        Args:
-            goal: Goal to achieve
-            initial_state: Initial state description
-            max_steps: Maximum prediction steps
-            return_intermediate: Return intermediate states
-
-        Returns:
-            RolloutResponse with predictions and summary
-
-        Example:
-            >>> result = await client.rollout(
-            ...     goal="Increase stability to >80%",
-            ...     initial_state="stability: 45%",
-            ...     max_steps=5
-            ... )
-        """
+        """Predict state trajectory (rollout)."""
         response = await self._request(
             "POST",
             "/v1/rollout",
@@ -180,25 +148,77 @@ class MJepaGClient:
                 "return_intermediate": return_intermediate,
             },
         )
-
         try:
             return RolloutResponse(**response.json())
         except PydanticValidationError as e:
             raise APIError(f"Invalid response format: {e}")
 
-    async def health(self) -> Dict[str, bool]:
+    async def messages(
+        self,
+        model: str,
+        messages: List[Dict[str, Any]],
+        max_tokens: int,
+        system: Optional[str] = None,
+        stream: bool = False,
+    ) -> AnthropicResponse:
         """
-        Check API health.
+        Anthropic-compatible messages endpoint.
 
-        Returns:
-            Health status dict
-
-        Example:
-            >>> status = await client.health()
-            >>> print(status)  # {"status": "healthy", "model_loaded": True}
+        Args:
+            model: Model name
+            messages: List of message dicts
+            max_tokens: Max tokens to generate
+            system: Optional system prompt
+            stream: Enable streaming (not yet supported here)
         """
+        body: Dict[str, Any] = {
+            "model": model,
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "stream": stream,
+        }
+        if system is not None:
+            body["system"] = system
+
+        response = await self._request("POST", "/v1/messages", json=body)
+        try:
+            return AnthropicResponse(**response.json())
+        except PydanticValidationError as e:
+            raise APIError(f"Invalid response format: {e}")
+
+    async def embeddings(
+        self,
+        model: str,
+        input: Union[str, List[str]],
+    ) -> EmbeddingResponse:
+        """
+        Create embeddings.
+
+        Args:
+            model: Model name
+            input: String or list of strings to embed
+        """
+        response = await self._request(
+            "POST",
+            "/v1/embeddings",
+            json={"model": model, "input": input},
+        )
+        try:
+            return EmbeddingResponse(**response.json())
+        except PydanticValidationError as e:
+            raise APIError(f"Invalid response format: {e}")
+
+    async def list_models(self) -> List[ModelInfo]:
+        """List available models."""
+        response = await self._request("GET", "/v1/models")
+        data = response.json()
+        models_data = data.get("data", data) if isinstance(data, dict) else data
+        return [ModelInfo(**m) for m in models_data]
+
+    async def health(self) -> Dict[str, Any]:
+        """Check API health."""
         response = await self._client.get(f"{self.api_url}/health", timeout=5.0)
-        return response.json()
+        return response.json()  # type: ignore[no-any-return]
 
     def get_compression_ratio(self) -> str:
         """Get estimated compression ratio for current profile."""
@@ -211,54 +231,56 @@ class MJepaGClient:
         return profile.quality
 
 
-class ChatCompletions:
+# Alias for backwards compatibility
+MJepaGClient = StratusClient
+
+
+class _ChatCompletions:
     """Chat completions namespace (OpenAI-compatible)."""
 
-    def __init__(self, client: MJepaGClient):
+    def __init__(self, client: StratusClient):
         self._client = client
 
     async def create(
         self,
-        messages: List[Dict[str, str]],
+        messages: List[Dict[str, Any]],
         model: str,
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
         stream: bool = False,
+        tools: Optional[List[Dict[str, Any]]] = None,
+        tool_choice: Optional[Any] = None,
+        stratus: Optional[Dict[str, Any]] = None,
+        openai_key: Optional[str] = None,
+        anthropic_key: Optional[str] = None,
+        openrouter_key: Optional[str] = None,
     ) -> ChatCompletionResponse:
-        """
-        Create chat completion.
-
-        Args:
-            messages: List of messages
-            model: Model name
-            temperature: Sampling temperature
-            max_tokens: Max tokens to generate
-            stream: Enable streaming
-
-        Returns:
-            ChatCompletionResponse
-
-        Example:
-            >>> response = await client.chat.completions.create(
-            ...     messages=[{"role": "user", "content": "Hello!"}],
-            ...     model="stratus-x1-ac"
-            ... )
-        """
+        """Create chat completion."""
         if stream:
             raise NotImplementedError("Use stream() method for streaming")
 
-        response = await self._client._request(
-            "POST",
-            "/v1/chat/completions",
-            json={
-                "messages": messages,
-                "model": model,
-                "temperature": temperature,
-                "max_tokens": max_tokens,
-                "stream": False,
-            },
-        )
+        body: Dict[str, Any] = {
+            "messages": messages,
+            "model": model,
+            "temperature": temperature,
+            "stream": False,
+        }
+        if max_tokens is not None:
+            body["max_tokens"] = max_tokens
+        if tools is not None:
+            body["tools"] = tools
+        if tool_choice is not None:
+            body["tool_choice"] = tool_choice
+        if stratus is not None:
+            body["stratus"] = stratus
+        if openai_key is not None:
+            body["openai_key"] = openai_key
+        if anthropic_key is not None:
+            body["anthropic_key"] = anthropic_key
+        if openrouter_key is not None:
+            body["openrouter_key"] = openrouter_key
 
+        response = await self._client._request("POST", "/v1/chat/completions", json=body)
         try:
             return ChatCompletionResponse(**response.json())
         except PydanticValidationError as e:
@@ -266,27 +288,12 @@ class ChatCompletions:
 
     async def stream(
         self,
-        messages: List[Dict[str, str]],
+        messages: List[Dict[str, Any]],
         model: str,
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
     ) -> AsyncIterator[ChatCompletionChunk]:
-        """
-        Stream chat completion.
-
-        Args:
-            messages: List of messages
-            model: Model name
-            temperature: Sampling temperature
-            max_tokens: Max tokens to generate
-
-        Yields:
-            ChatCompletionChunk objects
-
-        Example:
-            >>> async for chunk in client.chat.completions.stream(...):
-            ...     print(chunk.choices[0].delta.get("content", ""), end="")
-        """
+        """Stream chat completion."""
         async with self._client._client.stream(
             "POST",
             f"{self._client.api_url}/v1/chat/completions",
@@ -301,11 +308,116 @@ class ChatCompletions:
             async for line in response.aiter_lines():
                 if not line.strip() or line == "data: [DONE]":
                     continue
-
                 if line.startswith("data: "):
-                    data = line[6:]  # Remove "data: " prefix
+                    data = line[6:]
                     try:
                         chunk_data = json.loads(data)
                         yield ChatCompletionChunk(**chunk_data)
                     except (json.JSONDecodeError, PydanticValidationError):
                         continue
+
+
+class _ChatNamespace:
+    """Chat namespace (client.chat)."""
+
+    def __init__(self, client: StratusClient):
+        self.completions = _ChatCompletions(client)
+
+
+class _LLMKeys:
+    """LLM key management namespace (client.account.llm_keys)."""
+
+    def __init__(self, client: StratusClient):
+        self._client = client
+
+    async def set(
+        self,
+        openai_key: Optional[str] = None,
+        anthropic_key: Optional[str] = None,
+        openrouter_key: Optional[str] = None,
+    ) -> LLMKeySetResponse:
+        """Set LLM provider API keys."""
+        body: Dict[str, Any] = {}
+        if openai_key is not None:
+            body["openai_key"] = openai_key
+        if anthropic_key is not None:
+            body["anthropic_key"] = anthropic_key
+        if openrouter_key is not None:
+            body["openrouter_key"] = openrouter_key
+
+        response = await self._client._request("POST", "/v1/account/llm-keys", json=body)
+        try:
+            return LLMKeySetResponse(**response.json())
+        except PydanticValidationError as e:
+            raise APIError(f"Invalid response format: {e}")
+
+    async def get(self) -> LLMKeyStatus:
+        """Get configured LLM key status."""
+        response = await self._client._request("GET", "/v1/account/llm-keys")
+        try:
+            return LLMKeyStatus(**response.json())
+        except PydanticValidationError as e:
+            raise APIError(f"Invalid response format: {e}")
+
+    async def delete(self, provider: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Delete LLM provider key(s).
+
+        Args:
+            provider: Provider name to delete ('openai', 'anthropic', 'openrouter').
+                      If None, deletes all configured keys.
+        """
+        body: Dict[str, Any] = {}
+        if provider is not None:
+            body["provider"] = provider
+
+        response = await self._client._request("DELETE", "/v1/account/llm-keys", json=body)
+        return response.json()  # type: ignore[no-any-return]
+
+
+class _AccountNamespace:
+    """Account namespace (client.account)."""
+
+    def __init__(self, client: StratusClient):
+        self.llm_keys = _LLMKeys(client)
+
+
+class _CreditsNamespace:
+    """Credits namespace (client.credits)."""
+
+    def __init__(self, client: StratusClient):
+        self._client = client
+
+    async def packages(self) -> List[CreditPackage]:
+        """List available credit packages."""
+        response = await self._client._request("GET", "/v1/credits/packages")
+        data = response.json()
+        packages_data = data.get("data", data) if isinstance(data, dict) else data
+        return [CreditPackage(**p) for p in packages_data]
+
+    async def purchase(
+        self,
+        package_name: str,
+        payment_header: str,
+    ) -> CreditPurchaseResponse:
+        """
+        Purchase a credit package.
+
+        Args:
+            package_name: Name of the package to purchase
+            payment_header: Payment authorization header value
+        """
+        response = await self._client._request(
+            "POST",
+            "/v1/credits/purchase",
+            json={"package_name": package_name},
+            headers={"X-Payment": payment_header},
+        )
+        try:
+            return CreditPurchaseResponse(**response.json())
+        except PydanticValidationError as e:
+            raise APIError(f"Invalid response format: {e}")
+
+
+# Legacy name for ChatCompletions (used in older code)
+ChatCompletions = _ChatCompletions

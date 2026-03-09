@@ -1,10 +1,10 @@
 """
-Stratus SDK - Official Python SDK for M-JEPA-G world model.
+Stratus SDK - Official Python SDK for Stratus X1 M-JEPA-G world model.
 
 Example:
-    >>> from stratus_sdk import MJepaGClient, TrajectoryPredictor
+    >>> from stratus_sdk import StratusClient, TrajectoryPredictor
     >>>
-    >>> client = MJepaGClient(api_key="sk-stratus-...")
+    >>> client = StratusClient(api_key="sk-stratus-...")
     >>>
     >>> # Chat completion (OpenAI-compatible)
     >>> response = await client.chat.completions.create(
@@ -21,10 +21,10 @@ Example:
     ... )
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
-# Client
-from .client import MJepaGClient
+# Client (primary name + legacy alias)
+from .client import MJepaGClient, StratusClient
 
 # Trajectory prediction
 from .trajectory import TrajectoryPredictor
@@ -34,6 +34,7 @@ from .comparison import ModelComparison, compare_models
 
 # Production helpers
 from .helpers import (
+    CreditMonitor,
     HealthChecker,
     RateLimiter,
     SimpleCache,
@@ -61,13 +62,27 @@ from .profiles import (
 # Types
 from .types import (
     Action,
+    AnthropicContentBlock,
+    AnthropicRequest,
+    AnthropicResponse,
     ChatCompletionChunk,
     ChatCompletionResponse,
     ComparisonResult,
+    CreditPackage,
+    CreditPurchaseResponse,
+    EmbeddingObject,
+    EmbeddingRequest,
+    EmbeddingResponse,
+    LLMKeySetRequest,
+    LLMKeySetResponse,
+    LLMKeyStatus,
     Message,
+    ModelInfo,
     ModelMetrics,
+    ModelsResponse,
     RolloutResponse,
     StatePrediction,
+    StratusMetadata,
     TrajectoryResult,
     Usage,
 )
@@ -76,14 +91,18 @@ from .types import (
 from .exceptions import (
     APIError,
     AuthenticationError,
+    InsufficientCreditsError,
     RateLimitError,
+    StratusAPIError,
     StratusError,
+    StratusErrorType,
     TimeoutError,
     ValidationError,
 )
 
 __all__ = [
     # Client
+    "StratusClient",
     "MJepaGClient",
     # Trajectory
     "TrajectoryPredictor",
@@ -94,6 +113,7 @@ __all__ = [
     "SimpleCache",
     "RateLimiter",
     "HealthChecker",
+    "CreditMonitor",
     "retry_with_backoff",
     "generate_cache_key",
     # Profiles
@@ -121,10 +141,27 @@ __all__ = [
     "TrajectoryResult",
     "ModelMetrics",
     "ComparisonResult",
+    "AnthropicRequest",
+    "AnthropicResponse",
+    "AnthropicContentBlock",
+    "EmbeddingRequest",
+    "EmbeddingResponse",
+    "EmbeddingObject",
+    "ModelInfo",
+    "ModelsResponse",
+    "LLMKeySetRequest",
+    "LLMKeySetResponse",
+    "LLMKeyStatus",
+    "CreditPackage",
+    "CreditPurchaseResponse",
+    "StratusMetadata",
     # Exceptions
     "StratusError",
+    "StratusAPIError",
+    "StratusErrorType",
     "AuthenticationError",
     "RateLimitError",
+    "InsufficientCreditsError",
     "APIError",
     "TimeoutError",
     "ValidationError",

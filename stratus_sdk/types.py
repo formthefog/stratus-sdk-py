@@ -4,7 +4,8 @@ Type definitions for Stratus SDK.
 Pydantic models matching the M-JEPA-G API specification.
 """
 
-from typing import List, Literal, Optional
+from enum import Enum
+from typing import Any, Dict, List, Literal, Optional, Union
 from pydantic import BaseModel, Field
 
 
@@ -114,3 +115,140 @@ class ComparisonResult(BaseModel):
     results: List[ModelMetrics]
     winner: dict
     timestamp: str
+
+
+# --- Anthropic-compatible types ---
+
+class AnthropicContentBlock(BaseModel):
+    """Content block in Anthropic message format."""
+
+    type: Literal["text", "tool_use", "tool_result"] = "text"
+    text: Optional[str] = None
+    id: Optional[str] = None
+    name: Optional[str] = None
+    input: Optional[Dict[str, Any]] = None
+
+
+class AnthropicRequest(BaseModel):
+    """Anthropic messages API request."""
+
+    model: str
+    messages: List[Dict[str, Any]]
+    max_tokens: int
+    system: Optional[str] = None
+    stream: bool = False
+
+
+class AnthropicResponse(BaseModel):
+    """Anthropic messages API response."""
+
+    id: str
+    type: str = "message"
+    role: str = "assistant"
+    content: List[AnthropicContentBlock]
+    model: str
+    stop_reason: Optional[str] = None
+    stop_sequence: Optional[str] = None
+    usage: Optional[Dict[str, int]] = None
+
+
+# --- Embedding types ---
+
+class EmbeddingObject(BaseModel):
+    """Single embedding result."""
+
+    object: str = "embedding"
+    embedding: List[float]
+    index: int
+
+
+class EmbeddingRequest(BaseModel):
+    """Embedding request."""
+
+    model: str
+    input: Union[str, List[str]]
+
+
+class EmbeddingResponse(BaseModel):
+    """Embedding response."""
+
+    object: str = "list"
+    data: List[EmbeddingObject]
+    model: str
+    usage: Optional[Dict[str, int]] = None
+
+
+# --- Model listing ---
+
+class ModelInfo(BaseModel):
+    """Info about a single model."""
+
+    id: str
+    object: str = "model"
+    created: Optional[int] = None
+    owned_by: Optional[str] = None
+    description: Optional[str] = None
+
+
+class ModelsResponse(BaseModel):
+    """Response from list models endpoint."""
+
+    object: str = "list"
+    data: List[ModelInfo]
+
+
+# --- LLM key management ---
+
+class LLMKeySetRequest(BaseModel):
+    """Request to set LLM provider keys."""
+
+    openai_key: Optional[str] = None
+    anthropic_key: Optional[str] = None
+    openrouter_key: Optional[str] = None
+
+
+class LLMKeyStatus(BaseModel):
+    """Status of configured LLM keys."""
+
+    openai: bool = False
+    anthropic: bool = False
+    openrouter: bool = False
+
+
+class LLMKeySetResponse(BaseModel):
+    """Response after setting LLM keys."""
+
+    success: bool
+    configured: LLMKeyStatus
+
+
+# --- Credits ---
+
+class CreditPackage(BaseModel):
+    """Available credit purchase package."""
+
+    name: str
+    credits: float
+    price_usd: float
+    description: Optional[str] = None
+
+
+class CreditPurchaseResponse(BaseModel):
+    """Response after purchasing credits."""
+
+    success: bool
+    credits_added: float
+    new_balance: float
+    transaction_id: Optional[str] = None
+
+
+# --- Stratus metadata ---
+
+class StratusMetadata(BaseModel):
+    """Stratus-specific metadata returned with completions."""
+
+    brain_signal: Optional[float] = None
+    action_sequence: Optional[List[str]] = None
+    planning_time_ms: Optional[int] = None
+    validation_score: Optional[float] = None
+    mode: Optional[str] = None
