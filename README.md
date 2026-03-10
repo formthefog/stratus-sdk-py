@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/stratus-x1-dark.png">
-    <img src="assets/stratus-x1-light.png" alt="Stratus X1" width="400">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/formthefog/stratus-sdk-py/main/assets/stratus-x1-dark.png">
+    <img src="https://raw.githubusercontent.com/formthefog/stratus-sdk-py/main/assets/stratus-x1-light.png" alt="Stratus X1" width="400">
   </picture>
 </p>
 
