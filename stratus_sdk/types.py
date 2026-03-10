@@ -4,7 +4,6 @@ Type definitions for Stratus SDK.
 Pydantic models matching the M-JEPA-G API specification.
 """
 
-from enum import Enum
 from typing import Any, Dict, List, Literal, Optional, Union
 from pydantic import BaseModel, Field
 
