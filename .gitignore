@@ -71,3 +71,8 @@ dmypy.json
 
 # Ruff
 .ruff_cache/
+
+# JFL session files
+.jfl/
+.claude/
+service.json
