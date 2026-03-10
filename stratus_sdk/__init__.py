@@ -21,7 +21,7 @@ Example:
     ... )
 """
 
-__version__ = "0.0.2"
+__version__ = "0.0.3"
 
 # Client (primary name + legacy alias)
 from .client import MJepaGClient, StratusClient
