@@ -53,20 +53,34 @@ class ChatCompletionChunk(BaseModel):
 
 
 class Action(BaseModel):
-    """Action with confidence score."""
+    """Action from rollout prediction."""
 
-    action_id: str
-    action_text: str
-    confidence: float = Field(ge=0.0, le=1.0)
+    action_id: int
+    action_name: str
+    action_category: Optional[str] = None
+    step: Optional[int] = None
+
+
+class StateSnapshot(BaseModel):
+    """State magnitude snapshot."""
+
+    step: int
+    magnitude: float
+    confidence: str
 
 
 class StatePrediction(BaseModel):
     """State prediction with action and metadata."""
 
     step: int
-    predicted_state: str
     action: Action
+    current_state: Optional[StateSnapshot] = None
+    predicted_state: Optional[StateSnapshot] = None
     state_change: float
+    interpretation: Optional[str] = None
+    brain_confidence: Optional[float] = None
+    brain_goal_proximity: Optional[float] = None
+    brain_alternatives: Optional[Any] = None
 
 
 class RolloutSummary(BaseModel):
@@ -74,15 +88,21 @@ class RolloutSummary(BaseModel):
 
     total_steps: int
     outcome: str
-    final_state: str
+    initial_magnitude: Optional[float] = None
+    final_magnitude: Optional[float] = None
+    total_state_change: Optional[float] = None
+    planner: Optional[str] = None
+    action_path: Optional[List[str]] = None
 
 
 class RolloutResponse(BaseModel):
     """Rollout response (trajectory prediction)."""
 
+    id: Optional[str] = None
     predictions: List[StatePrediction]
     summary: RolloutSummary
-    usage: Usage
+    action_sequence: Optional[List[Any]] = None
+    usage: Optional[Usage] = None
 
 
 class TrajectoryResult(BaseModel):
@@ -227,9 +247,11 @@ class CreditPackage(BaseModel):
     """Available credit purchase package."""
 
     name: str
-    credits: float
-    price_usd: float
+    label: Optional[str] = None
     description: Optional[str] = None
+    credits: float
+    amount_usdc: Optional[float] = None
+    amount_micro_usdc: Optional[int] = None
 
 
 class CreditPurchaseResponse(BaseModel):

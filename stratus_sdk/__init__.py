@@ -21,7 +21,7 @@ Example:
     ... )
 """
 
-__version__ = "0.0.5"
+__version__ = "0.0.6"
 
 # Client (primary name + legacy alias)
 from .client import MJepaGClient, StratusClient
@@ -62,6 +62,7 @@ from .profiles import (
 # Types
 from .types import (
     Action,
+    StateSnapshot,
     AnthropicContentBlock,
     AnthropicRequest,
     AnthropicResponse,
