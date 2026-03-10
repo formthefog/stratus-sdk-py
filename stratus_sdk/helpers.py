@@ -6,7 +6,7 @@ Tools for caching, rate limiting, health monitoring, and retry logic.
 
 import asyncio
 import time
-from typing import Any, Callable, Dict, Optional, TypeVar
+from typing import Any, Awaitable, Callable, Dict, Optional, TypeVar
 
 from .client import MJepaGClient
 from .exceptions import AuthenticationError, ValidationError
@@ -166,7 +166,7 @@ class HealthChecker:
         if self._monitoring_task is not None:
             return
 
-        async def monitor():
+        async def monitor() -> None:
             while True:
                 await self.check()
                 await asyncio.sleep(self.check_interval)
@@ -185,7 +185,7 @@ class HealthChecker:
 
 
 async def retry_with_backoff(
-    fn: Callable[[], T],
+    fn: Callable[[], Awaitable[T]],
     max_retries: int = 3,
     initial_delay_ms: int = 1000,
     max_delay_ms: int = 10000,

@@ -127,7 +127,7 @@ class ModelComparison:
         # Quality winner: highest embedding quality
         quality_results = [r for r in results if r.embedding_quality is not None]
         quality_winner = (
-            max(quality_results, key=lambda r: r.embedding_quality).model
+            max(quality_results, key=lambda r: r.embedding_quality or 0.0).model
             if quality_results
             else "mjepa-g"
         )
@@ -135,7 +135,7 @@ class ModelComparison:
         # Performance winner: lowest p50 latency
         perf_results = [r for r in results if r.latency_p50 is not None]
         perf_winner = (
-            min(perf_results, key=lambda r: r.latency_p50).model
+            min(perf_results, key=lambda r: r.latency_p50 or 0).model
             if perf_results
             else "mjepa-g"
         )
@@ -143,7 +143,7 @@ class ModelComparison:
         # Cost winner: lowest cost per 1M tokens
         cost_results = [r for r in results if r.cost_per_1m_tokens is not None]
         cost_winner = (
-            min(cost_results, key=lambda r: r.cost_per_1m_tokens).model
+            min(cost_results, key=lambda r: r.cost_per_1m_tokens or 0.0).model
             if cost_results
             else "mjepa-g"
         )
