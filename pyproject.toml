@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "stratus-sdk-py"
-version = "0.0.6"
+version = "0.0.7"
 description = "Official Python SDK for Stratus X1 — the predictive world model for AI agents"
 readme = "README.md"
 requires-python = ">=3.8"
