@@ -17,13 +17,13 @@ def make_rollout_response(steps: int = 3, outcome: str = "success") -> dict:
     predictions = [
         {
             "step": i + 1,
-            "predicted_state": f"state_{i + 1}",
+            "predicted_state": {"step": i + 1, "magnitude": 0.5 + i * 0.1, "confidence": "high"},
             "action": {
-                "action_id": f"a{i}",
-                "action_text": f"action {i}",
-                "confidence": 0.8 + i * 0.05,
+                "action_id": i,
+                "action_name": f"action {i}",
             },
             "state_change": 0.3 * (i + 1),
+            "brain_confidence": 0.8 + i * 0.05,
         }
         for i in range(steps)
     ]
@@ -32,7 +32,7 @@ def make_rollout_response(steps: int = 3, outcome: str = "success") -> dict:
         "summary": {
             "total_steps": steps,
             "outcome": outcome,
-            "final_state": f"state_{steps}",
+            "final_magnitude": 0.9,
         },
         "usage": {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30},
     }
@@ -116,9 +116,10 @@ def make_trajectory(quality: float, steps: int) -> TrajectoryResult:
     predictions = [
         StatePrediction(
             step=i + 1,
-            predicted_state=f"s{i}",
-            action=Action(action_id=f"a{i}", action_text="act", confidence=0.9),
+            predicted_state=None,
+            action=Action(action_id=i, action_name="act"),
             state_change=0.3,
+            brain_confidence=0.9,
         )
         for i in range(steps)
     ]
@@ -130,7 +131,7 @@ def make_trajectory(quality: float, steps: int) -> TrajectoryResult:
             "goalAchieved": quality >= 80.0,
             "actions": ["act"] * steps,
             "outcome": "success",
-            "finalState": f"s{steps - 1}",
+            "finalMagnitude": 0.9,
         },
         usage=Usage(prompt_tokens=5, completion_tokens=10, total_tokens=15),
     )

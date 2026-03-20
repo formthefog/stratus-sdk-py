@@ -331,12 +331,13 @@ async def test_rollout_success():
                 "predictions": [
                     {
                         "step": 1,
-                        "predicted_state": "better state",
-                        "action": {"action_id": "a1", "action_text": "do thing", "confidence": 0.9},
+                        "predicted_state": {"step": 1, "magnitude": 0.8, "confidence": "high"},
+                        "action": {"action_id": 1, "action_name": "do thing"},
                         "state_change": 0.5,
+                        "brain_confidence": 0.9,
                     }
                 ],
-                "summary": {"total_steps": 1, "outcome": "success", "final_state": "done"},
+                "summary": {"total_steps": 1, "outcome": "success", "final_magnitude": 0.8},
                 "usage": {"prompt_tokens": 5, "completion_tokens": 10, "total_tokens": 15},
             },
         )

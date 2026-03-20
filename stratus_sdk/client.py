@@ -393,6 +393,8 @@ class _CreditsNamespace:
         response = await self._client._request("GET", "/v1/credits/packages")
         data = response.json()
         packages_data = data.get("packages", data.get("data", data)) if isinstance(data, dict) else data
+        if packages_data is None:
+            packages_data = []
         return [CreditPackage(**p) for p in packages_data]
 
     async def purchase(

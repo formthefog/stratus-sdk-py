@@ -146,10 +146,10 @@ def test_llm_key_set_response():
 # --- CreditPackage ---
 
 def test_credit_package_valid():
-    pkg = CreditPackage(name="starter", credits=100.0, price_usd=9.99)
+    pkg = CreditPackage(name="starter", credits=100.0, amount_usdc=9.99)
     assert pkg.name == "starter"
     assert pkg.credits == 100.0
-    assert pkg.price_usd == 9.99
+    assert pkg.amount_usdc == 9.99
 
 
 def test_credit_purchase_response():

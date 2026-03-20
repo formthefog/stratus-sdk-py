@@ -7,7 +7,7 @@ High-level tools for M-JEPA-G world modeling.
 from typing import Callable, List, Optional
 
 from .client import MJepaGClient
-from .types import StatePrediction, TrajectoryResult
+from .types import StatePrediction, TrajectoryResult, Usage
 
 
 class TrajectoryPredictor:
@@ -75,11 +75,11 @@ class TrajectoryPredictor:
                 "totalSteps": response.summary.total_steps,
                 "goalAchieved": goal_achieved,
                 "qualityScore": quality_score,
-                "actions": [p.action.action_text for p in response.predictions],
+                "actions": [p.action.action_name for p in response.predictions],
                 "outcome": response.summary.outcome,
-                "finalState": response.summary.final_state,
+                "finalMagnitude": response.summary.final_magnitude,
             },
-            usage=response.usage,
+            usage=response.usage or Usage(prompt_tokens=0, completion_tokens=0, total_tokens=0),
         )
 
     async def predict_many(
@@ -149,7 +149,7 @@ class TrajectoryPredictor:
             >>> best = predictor.find_optimal(
             ...     trajectories,
             ...     min_quality=85,
-            ...     cost_function=lambda p: p.action.confidence * p.state_change
+            ...     cost_function=lambda p: (p.brain_confidence or 0.0) * p.state_change
             ... )
         """
         if not trajectories:
@@ -216,7 +216,7 @@ class TrajectoryPredictor:
         avg_steps = sum(t.summary["totalSteps"] for t in trajectories) / len(trajectories)
 
         avg_confidence = sum(
-            sum(p.action.confidence for p in t.predictions) / len(t.predictions)
+            sum((p.brain_confidence or 0.0) for p in t.predictions) / len(t.predictions)
             for t in trajectories
         ) / len(trajectories)
 
@@ -273,7 +273,7 @@ class TrajectoryPredictor:
 
         # Average confidence (0-1 -> 0-100)
         avg_confidence = (
-            sum(p.action.confidence for p in predictions) / len(predictions)
+            sum((p.brain_confidence or 0.0) for p in predictions) / len(predictions)
         ) * 100
 
         # Total progress (normalized to 0-100)
