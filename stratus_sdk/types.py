@@ -5,7 +5,7 @@ Pydantic models matching the M-JEPA-G API specification.
 """
 
 from typing import Any, Dict, List, Literal, Optional, Union
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class Message(BaseModel):

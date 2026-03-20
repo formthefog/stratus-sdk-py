@@ -137,6 +137,7 @@ __all__ = [
     "ChatCompletionResponse",
     "ChatCompletionChunk",
     "Action",
+    "StateSnapshot",
     "StatePrediction",
     "RolloutResponse",
     "TrajectoryResult",
